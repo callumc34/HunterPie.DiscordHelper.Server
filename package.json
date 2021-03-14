@@ -18,9 +18,11 @@
   },
   "homepage": "https://github.com/callumc34/HunterPie.DiscordHelper#readme",
   "dependencies": {
+    "bufferutil": "^4.0.3",
     "dotenv": "^8.2.0",
-    "util": "^0.12.3",
-    "websocket": "^1.0.33",
+    "express": "^4.17.1",
+    "json-stringify-safe": "^5.0.1",
+    "utf-8-validate": "^5.0.4",
     "ws": "^7.4.4"
   }
 }
