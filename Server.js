@@ -30,13 +30,11 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
         this.on("connection", (ws ,request) => {
             const params = new URLSearchParams(request.url.substring(2));
             const uniqueID = params.get("uniqueid");
-            debugger;
             if (uniqueID == null) {
                 //Decline connection
-                request.reject();
+                ws.close();
             }
-            const connection = request.accept(null, request.origin);
-            this._clients[uniqueID] = connection;
+            this._clients[uniqueID] = ws;
             this.on("close", (client) => this._handleClose(client));
         })
     }
