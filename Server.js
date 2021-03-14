@@ -31,15 +31,15 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
 
     _setupDiscordBot() {
         this._discordBot = new NodeJSBot(this._prefix);
-        this._discordBot.once("ready" () => {
-            this._discordBot.loadCommands();
+        this._discordBot.once("ready", () => {
+            this._discordBot.commandCollection.loadCommands();
             console.log("Discord bot commands initialised");
         })
 
         //Add hooks
         this._discordBot.commandCollection.on("ran", console.log);
 
-        this._discordBot.initialise(token);
+        this._discordBot.initialise(this._token);
     }
 
     _handleClose(client) {
