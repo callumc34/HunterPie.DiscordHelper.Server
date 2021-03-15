@@ -6,6 +6,8 @@ const { Server } = require("ws");
 
 dotenv.config();
 
+//TODO(Callum): Add error numbers
+
 const PORT = process.env.PORT || 3000;
 const TOKEN = process.env.TOKEN;
 const PREFIX = process.env.PREFIX;
@@ -37,25 +39,63 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
         
     }
 
-    _findSocket(id) {
+    findSocket(id) {
         return this.clients.find(ws => ws.uniqueID === id);
     }
 
-    _handleMessage(data) {
+    _handleMessage(socket, data) {
+        //Data string valid formatting 
+        //uniqueid;command;argc;value;value;...
+        let information = data.split(";");
+        //Data handling
+        if (information.pop(-1) != "") {
+            socket.send("error;invalid-end-of-request-expected-semicolon;");
+            return;
+        } else if (this._discordUsers[information[0]] == undefined) {
+            socket.send(`error;no-discord-user-with-id-${information[0]};`);
+        } else {
+            switch (information[1]) {
+                //Send sid to channel
+                case "sid":
+                    socket.awaitingChannel.send(information[3]);
+                    socket.awaitingChannel = undefined;
+                    break;
+                case "build":
+                    socket.awaitingChannel.send(information[3]);
+                    socket.awaitingChannel = undefined;
+                    break;
+                default:
+                    // statements_def
+                    socket.send("error;invalid-request-data;")
+                    break;
+            }
+        }
+
         
     }
 
     _handleCommands(ctx, args, result, command) {
-        if (command.name == "sid") {
-            //Match ctx user to a client and then ping for a sid
-            var uniqueID;
-            if (uniqueID = this._discordUsers[ctx.author.id] != undefined) {
-                //Send a request to the hunterpie plugin for the sid
-                this._findSocket(uniqueID).send();
-            } else {
-                //Send a DM for them to add their uniqueID to the DB
-                ctx.author.send()
-            }
+        switch (command.name) {
+            case "sid":
+                //Match ctx user to a client and then ping for a sid
+                var uniqueID;
+                if (uniqueID = this._discordUsers[ctx.author.id] != undefined) {
+                    //Send a request to the hunterpie plugin for the sid
+                    let socket = this._findSocket(uniqueID);
+                    socket.send(`${uniqueID};request-sid;`);
+                    socket.awaitingChannel = ctx.channel;
+                    //Add timeout for sid being sent
+                } else {
+                    //Send a DM for them to add their uniqueID to the DB
+                    ctx.author.send()
+                }
+                break;
+
+            case "build":
+                break;
+            default:
+                ctx.channel.send(`That is not a valid command - to see valid commands type ${this._prefix}help`)
+                break;
         }
     }
 
@@ -80,11 +120,13 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
             if (uniqueID == null) {
                 //TODO(Callum): check if multiple connections from one id
                 //Decline connection
-                ws.close(4000, "No unique ID specified");
+                ws.close(4000, "error;no-id-specified;");
             }
             ws.uniqueID = uniqueID;
-            //TODO(Callum): Get ws passed through to message handler
-            ws.on("message", (data) => this._handleMessage(data))
+            var that = this;
+            ws.on("message", function(data) {
+                that._handleMessage(this, data);
+            })
         })
     }
 }
