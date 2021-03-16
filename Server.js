@@ -9,21 +9,27 @@ dotenv.config();
 //TODO(Callum): Add error numbers
 
 const PORT = process.env.PORT || 3000;
-const TOKEN = process.env.TOKEN;
-const PREFIX = process.env.PREFIX;
 const INDEX = "./index.html";
+
+const config = {
+    timeout: process.env.TIMEOUT,
+    token: process.env.TOKEN,
+    prefix: process.env.PREFIX
+}
 
 const server = express()
     .use((req, res) => res.sendFile(INDEX, {root: __dirname}))
     .listen(PORT, () => console.log(`Listening on ${PORT}`));
 
 const DiscordHelperServer = class DiscordHelperserver extends Server {
-    constructor(server, token, prefix) {
+    constructor(server, config) {
         super({ server });
 
-        //Discord bot vars
-        this._token = token;
-        this._prefix = prefix;
+        this._config = {
+            timeout: config.timeout || 60000,
+            prefix: config.prefix || "$",
+            token: config.token
+        };
 
         //Debugging - Delete later
         this.util = require("util");
@@ -39,6 +45,18 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
         
     }
 
+    get prefix() {
+        return this._config.prefix;
+    }
+
+    set timeout(val) {
+        this._config.timeout = val;
+    }
+
+    get timeout() {
+        return this._config.timeout;
+    }
+
     findSocket(id) {
         return this.clients.find(ws => ws.uniqueID === id);
     }
@@ -47,6 +65,7 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
         //Data string valid formatting 
         //uniqueid;command;argc;value;value;...
         let information = data.split(";");
+        clearTimeout(socket.timeout);
         //Data handling
         if (information.pop(-1) != "") {
             socket.send("error;invalid-end-of-request-expected-semicolon;");
@@ -65,13 +84,11 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
                     socket.awaitingChannel = undefined;
                     break;
                 default:
-                    // statements_def
+                    //Send back error response
                     socket.send("error;invalid-request-data;")
                     break;
             }
-        }
-
-        
+        }        
     }
 
     _handleCommands(ctx, args, result, command) {
@@ -83,8 +100,19 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
                     //Send a request to the hunterpie plugin for the sid
                     let socket = this._findSocket(uniqueID);
                     socket.send(`${uniqueID};request-sid;`);
+                    //Prevent sending command response in the wrong channel
+                    if (socket.awaitingChannel != undefined) {
+                        ctx.channel.send(
+                            "Please let the bot run its current command before sending another command");
+                        return;
+                    }
                     socket.awaitingChannel = ctx.channel;
-                    //Add timeout for sid being sent
+                    //Set timeout for call for sid
+                    socket.timeout = setTimeout(function() {
+                        ctx.channel.send(
+                            ctx.author.toString()
+                             + " could not fetch your sid. Please check your plugin is running correctly")
+                    }, this._config.timeout);
                 } else {
                     //Send a DM for them to add their uniqueID to the DB
                     ctx.author.send()
@@ -94,27 +122,29 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
             case "build":
                 break;
             default:
-                ctx.channel.send(`That is not a valid command - to see valid commands type ${this._prefix}help`)
+                ctx.channel.send(
+                    `That is not a valid command - to see valid commands type ${this._prefix}help`)
                 break;
         }
     }
 
     _setupDiscordBot() {
-        this._discordBot = new NodeJSBot(this._prefix);
+        this._discordBot = new NodeJSBot(this.prefix);
         this._discordBot.once("ready", () => {
             this._discordBot.commandCollection.loadCommands();
         })
 
         //Add hooks
-        this._discordBot.commandCollection.on("ran", (ctx, args, result, command) => {
+        this._discordBot.commandCollection.on(
+            "ran", (ctx, args, result, command) => {
             this._handleCommands(ctx, args, result, command)
         });
 
-        this._discordBot.initialise(this._token);
+        this._discordBot.initialise(this._config.token);
     }
 
     _setupServer() {
-        this.on("connection", (ws ,request) => {
+        this.on("connection", (ws, request) => {
             const params = new URLSearchParams(request.url.substring(2));
             const uniqueID = params.get("uniqueid");
             if (uniqueID == null) {
@@ -125,10 +155,10 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
             ws.uniqueID = uniqueID;
             var that = this;
             ws.on("message", function(data) {
-                that._handleMessage(this, data);
-            })
-        })
+                that._handleMessage(ws, data)
+            });
+        });
     }
 }
 
-const wsServer = new DiscordHelperServer(server, TOKEN, PREFIX);
+const wsServer = new DiscordHelperServer(server, config);
