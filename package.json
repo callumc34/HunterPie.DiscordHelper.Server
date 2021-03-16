@@ -4,14 +4,14 @@
   "description": "Server to interact with the HunterPie.DiscordHelper plugin.",
   "main": "Server.js",
   "scripts": {
-    "test": "node Server.js",
+    "debug": "node inspect Server.js",
     "start": "node Server.js"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/callumc34/HunterPie.DiscordHelper.git"
   },
-  "author": "",
+  "author": "callumc34",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/callumc34/HunterPie.DiscordHelper/issues"
