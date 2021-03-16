@@ -91,6 +91,8 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
         }        
     }
 
+    //TODO(Callum): Permanent storage for unique id with discord id
+
     _handleCommands(ctx, args, result, command) {
         switch (command.name) {
             case "sid":
@@ -115,15 +117,20 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
                     }, this._config.timeout);
                 } else {
                     //Send a DM for them to add their uniqueID to the DB
-                    ctx.author.send()
+                    ctx.author.send(
+                        `No unique ID found for this discord account - to add an ID respond to this message ${this.prefix}add {uniqueid}.`);
                 }
                 break;
 
             case "build":
                 break;
+
+            case "add":
+                this._disordUsers[ctx.author.id] = args[0];
+                ctx.channel.send("Your id has been added");
+                break;
+
             default:
-                ctx.channel.send(
-                    `That is not a valid command - to see valid commands type ${this._prefix}help`)
                 break;
         }
     }
@@ -147,8 +154,8 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
         this.on("connection", (ws, request) => {
             const params = new URLSearchParams(request.url.substring(2));
             const uniqueID = params.get("uniqueid");
+            //TODO(Callum): check if multiple connections from one id   
             if (uniqueID == null) {
-                //TODO(Callum): check if multiple connections from one id
                 //Decline connection
                 ws.close(4000, "error;no-id-specified;");
             }
