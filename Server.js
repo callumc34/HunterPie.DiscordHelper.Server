@@ -16,7 +16,7 @@ const config = {
     timeout: process.env.TIMEOUT || 60000,
     token: process.env.TOKEN,
     prefix: process.env.PREFIX,
-    serverUri: const uri = `mongodb+srv://${process.env.USER}:${process.env.PASSWORD}@callumc34-0.wrlkr.mongodb.net/DiscordHelperDB?retryWrites=true&w=majority`;
+    serverUri: `mongodb+srv://${process.env.USER}:${process.env.PASSWORD}@callumc34-0.wrlkr.mongodb.net/DiscordHelperDB?retryWrites=true&w=majority`
 }
 
 const server = express()
@@ -35,7 +35,7 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
         //Server DB
         //Note: ws.Server has own list of clients as this.clients
         this._discordUsers = {};
-        this.mongo = new MongoClient(uri, {
+        this.mongo = new MongoClient(this._config.serverUri, {
          useNewUrlParser: true, useUnifiedTopology: true });
         this.mongo.connect();
 
