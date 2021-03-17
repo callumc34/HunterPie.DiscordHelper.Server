@@ -1,6 +1,7 @@
 //https://github.com/websockets/ws
 const dotenv = require("dotenv");
 const express = require("express");
+const MongoClient = require("mongodb").MongoClient;
 const { NodeJSBot } = require("nodejsdiscordbot")
 const { Server } = require("ws");
 
@@ -12,9 +13,10 @@ const PORT = process.env.PORT || 3000;
 const INDEX = "./index.html";
 
 const config = {
-    timeout: process.env.TIMEOUT,
+    timeout: process.env.TIMEOUT || 60000,
     token: process.env.TOKEN,
-    prefix: process.env.PREFIX
+    prefix: process.env.PREFIX,
+    serverUri: const uri = `mongodb+srv://${process.env.USER}:${process.env.PASSWORD}@callumc34-0.wrlkr.mongodb.net/DiscordHelperDB?retryWrites=true&w=majority`;
 }
 
 const server = express()
@@ -25,19 +27,17 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
     constructor(server, config) {
         super({ server });
 
-        this._config = {
-            timeout: config.timeout || 60000,
-            prefix: config.prefix || "$",
-            token: config.token
-        };
+        this._config = config;
 
         //Debugging - Delete later
         this.util = require("util");
 
         //Server DB
         //Note: ws.Server has own list of clients as this.clients
-        //All clients are assigned uniqueID on connection
         this._discordUsers = {};
+        this.mongo = new MongoClient(uri, {
+         useNewUrlParser: true, useUnifiedTopology: true });
+        this.mongo.connect();
 
         //Initialisation
         this._setupServer();
@@ -59,6 +59,10 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
 
     findSocket(id) {
         return this.clients.find(ws => ws.uniqueID === id);
+    }
+
+    findUser(id) {
+        return this.mongo.db(this._config.db)
     }
 
     _handleMessage(socket, data) {
