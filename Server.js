@@ -16,7 +16,8 @@ const config = {
     timeout: process.env.TIMEOUT || 60000,
     token: process.env.TOKEN,
     prefix: process.env.PREFIX,
-    serverUri: `mongodb+srv://${process.env.USER}:${process.env.PASSWORD}@callumc34-0.wrlkr.mongodb.net/DiscordHelperDB?retryWrites=true&w=majority`
+    serverUri: `mongodb+srv://${process.env.USER}:${process.env.PASSWORD}@callumc34-0.wrlkr.mongodb.net/DiscordHelperDB?retryWrites=true&w=majority`,
+    db: process.env.DB
 }
 
 const server = express()
@@ -35,6 +36,7 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
         //Server DB
         //Note: ws.Server has own list of clients as this.clients
         this._discordUsers = {};
+        this._clients = {};
         this.mongo = new MongoClient(this._config.serverUri, {
          useNewUrlParser: true, useUnifiedTopology: true });
         this.mongo.connect();
@@ -57,8 +59,9 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
         return this._config.timeout;
     }
 
-    findSocket(id) {
-        return this.clients.find(ws => ws.uniqueID === id);
+    findDiscordUser(id) {
+        return Object.keys(this._discordUsers)
+        .find(key => this._discordUsers[key] === id);
     }
 
     findUser(id) {
@@ -74,7 +77,7 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
         if (information.pop(-1) != "") {
             socket.send("error;invalid-end-of-request-expected-semicolon;");
             return;
-        } else if (this._discordUsers[information[0]] == undefined) {
+        } else if (this.findDiscordUser(information[0]) == undefined) {
             socket.send(`error;no-discord-user-with-id-${information[0]};`);
         } else {
             switch (information[1]) {
@@ -101,17 +104,20 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
         switch (command.name) {
             case "sid":
                 //Match ctx user to a client and then ping for a sid
-                var uniqueID;
-                if (uniqueID = this._discordUsers[ctx.author.id] != undefined) {
+                var uniqueID = this._discordUsers[ctx.author.id];
+                if (uniqueID != undefined) {
                     //Send a request to the hunterpie plugin for the sid
-                    let socket = this._findSocket(uniqueID);
-                    socket.send(`${uniqueID};request-sid;`);
+                    let socket = this._clients[uniqueID];
+
                     //Prevent sending command response in the wrong channel
                     if (socket.awaitingChannel != undefined) {
                         ctx.channel.send(
                             "Please let the bot run its current command before sending another command");
                         return;
                     }
+
+                    socket.send(`${uniqueID};request-sid;`);
+                    
                     socket.awaitingChannel = ctx.channel;
                     //Set timeout for call for sid
                     socket.timeout = setTimeout(function() {
@@ -130,7 +136,7 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
                 break;
 
             case "add":
-                this._disordUsers[ctx.author.id] = args[0];
+                this._discordUsers[ctx.author.id] = args[0];
                 ctx.channel.send("Your id has been added");
                 break;
 
@@ -164,6 +170,7 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
                 ws.close(4000, "error;no-id-specified;");
             }
             ws.uniqueID = uniqueID;
+            this._clients[uniqueID] = ws;
             var that = this;
             ws.on("message", function(data) {
                 that._handleMessage(ws, data)
