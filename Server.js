@@ -99,23 +99,20 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
     }
 
     //TODO(Callum): Permanent storage for unique id with discord id
-
     _handleCommands(ctx, args, result, command) {
+        var uniqueID = this._discordUser[ctx.author.id];
+        var socket = this._clients[uniqueID];
+        //Prevent sending command response in the wrong channel
+        if (socket.awaitingChannel != undefined) {
+            ctx.channel.send(
+                "Please let the bot run its current command before sending another command");
+            return;
+        }
+
         switch (command.name) {
             case "sid":
-                //Match ctx user to a client and then ping for a sid
-                var uniqueID = this._discordUsers[ctx.author.id];
                 if (uniqueID != undefined) {
                     //Send a request to the hunterpie plugin for the sid
-                    let socket = this._clients[uniqueID];
-
-                    //Prevent sending command response in the wrong channel
-                    if (socket.awaitingChannel != undefined) {
-                        ctx.channel.send(
-                            "Please let the bot run its current command before sending another command");
-                        return;
-                    }
-
                     socket.send(`${uniqueID};request-sid;`);
                     
                     socket.awaitingChannel = ctx.channel;
@@ -133,6 +130,22 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
                 break;
 
             case "build":
+                if (uniqueID != undefined) {
+                    //Send a request to the hunterpie plugin for the sid
+                    socket.send(`${uniqueID};request-build;`);
+                    
+                    socket.awaitingChannel = ctx.channel;
+                    //Set timeout for call for sid
+                    socket.timeout = setTimeout(function() {
+                        ctx.channel.send(
+                            ctx.author.toString()
+                             + " could not fetch your sid. Please check your plugin is running correctly")
+                    }, this._config.timeout);
+                } else {
+                    //Send a DM for them to add their uniqueID to the DB
+                    ctx.author.send(
+                        `No unique ID found for this discord account - to add an ID respond to this message ${this.prefix}add {uniqueid}.`);
+                }
                 break;
 
             case "add":
