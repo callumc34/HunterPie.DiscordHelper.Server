@@ -80,81 +80,46 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
         } else if (this.findDiscordUser(information[0]) == undefined) {
             socket.send(`error;no-discord-user-with-id-${information[0]};`);
         } else {
-            switch (information[1]) {
-                //Send sid to channel
-                case "sid":
-                    socket.awaitingChannel.send(information[3]);
-                    socket.awaitingChannel = undefined;
-                    break;
-                case "build":
-                    socket.awaitingChannel.send(information[3]);
-                    socket.awaitingChannel = undefined;
-                    break;
-                default:
-                    //Send back error response
-                    socket.send("error;invalid-request-data;")
-                    break;
+            if (["sid", "build"].includes(information[1])) {
+                socket.awaitingChannel.send(information[3]);
+                socket.awaitingChannel = undefined;
+            } else {
+                socket.send("error;invalid-request-data");
             }
         }        
     }
 
     //TODO(Callum): Permanent storage for unique id with discord id
     _handleCommands(ctx, args, result, command) {
-        var uniqueID = this._discordUser[ctx.author.id];
-        var socket = this._clients[uniqueID];
-        //Prevent sending command response in the wrong channel
-        if (socket.awaitingChannel != undefined) {
-            ctx.channel.send(
-                "Please let the bot run its current command before sending another command");
-            return;
-        }
+        if (["sid", "build"].includes(command.name)) {
+            var uniqueID = this._discordUser[ctx.author.id];
+            var socket = this._clients[uniqueID];
+            //Prevent sending command response in the wrong channel
+            if (socket.awaitingChannel != undefined) {
+                ctx.channel.send(
+                    "Please let the bot run its current command before sending another command");
+                return;
+            }
 
-        switch (command.name) {
-            case "sid":
-                if (uniqueID != undefined) {
-                    //Send a request to the hunterpie plugin for the sid
-                    socket.send(`${uniqueID};request-sid;`);
-                    
-                    socket.awaitingChannel = ctx.channel;
-                    //Set timeout for call for sid
-                    socket.timeout = setTimeout(function() {
-                        ctx.channel.send(
-                            ctx.author.toString()
-                             + " could not fetch your sid. Please check your plugin is running correctly")
-                    }, this._config.timeout);
-                } else {
-                    //Send a DM for them to add their uniqueID to the DB
-                    ctx.author.send(
-                        `No unique ID found for this discord account - to add an ID respond to this message ${this.prefix}add {uniqueid}.`);
-                }
-                break;
-
-            case "build":
-                if (uniqueID != undefined) {
-                    //Send a request to the hunterpie plugin for the sid
-                    socket.send(`${uniqueID};request-build;`);
-                    
-                    socket.awaitingChannel = ctx.channel;
-                    //Set timeout for call for sid
-                    socket.timeout = setTimeout(function() {
-                        ctx.channel.send(
-                            ctx.author.toString()
-                             + " could not fetch your sid. Please check your plugin is running correctly")
-                    }, this._config.timeout);
-                } else {
-                    //Send a DM for them to add their uniqueID to the DB
-                    ctx.author.send(
-                        `No unique ID found for this discord account - to add an ID respond to this message ${this.prefix}add {uniqueid}.`);
-                }
-                break;
-
-            case "add":
-                this._discordUsers[ctx.author.id] = args[0];
-                ctx.channel.send("Your id has been added");
-                break;
-
-            default:
-                break;
+            if (uniqueID != undefined) {
+                //Send a request to the hunterpie plugin for the sid
+                socket.send(`${uniqueID};request-sid;`);
+                
+                socket.awaitingChannel = ctx.channel;
+                //Set timeout for call for sid
+                socket.timeout = setTimeout(function() {
+                    ctx.channel.send(
+                        `${ctx.author.toString()} could not fetch your ${command.name}. Please check your plugin is running correctly`);
+                }, this._config.timeout);
+            } else {
+                //Send a DM for them to add their uniqueID to the DB
+                ctx.author.send(
+                    `No unique ID found for this discord account - to add an ID respond to this message ${this.prefix}add {uniqueid}.`);
+            }
+        } else if (command.name == "add") {
+            this._discordUsers[ctx.author.id] = args[0];
+            ctx.channel.send("Your id has been added");
+            break;
         }
     }
 
