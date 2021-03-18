@@ -37,13 +37,13 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
         //Note: ws.Server has own list of clients as this.clients
         this._discordUsers = {};
         this._clients = {};
-        this.mongo = new MongoClient(this._config.serverUri, {
-         useNewUrlParser: true, useUnifiedTopology: true });
-        this.mongo.connect();
 
         //Initialisation
-        this._setupServer();
-        this._setupDiscordBot();
+        this._setupMongoDB()
+            .then(() => {
+                this._setupServer();
+                this._setupDiscordBot();
+            });
         
     }
 
@@ -59,25 +59,41 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
         return this._config.timeout;
     }
 
-    findDiscordUser(id) {
-        return Object.keys(this._discordUsers)
-        .find(key => this._discordUsers[key] === id);
+    async addUser(discordID, uniqueID) {
+        await this.mongo.db(this._config.db).collection("users")
+        .deleteMany({uniqueID});
+
+        await this.mongo.db(this._config.db).collection("users")
+        .deleteMany({discordID});
+
+        return await this.mongo.db(this._config.db).collection(
+            "users").insertOne({discordID, uniqueID});
     }
 
-    findUser(id) {
-        return this.mongo.db(this._config.db)
+    async findUser(method) {
+        let collection = await this.mongo.db(this._config.db).collection("users");
+        if (method.uniqueID) {
+            let _ = await collection.find({uniqueID: method.uniqueID}).toArray();
+            return _[0];
+        } else if (method.discordID) {
+            let _ = await collection.find({discordID: method.discordID}).toArray();
+            return _[0];
+        } else {
+            return false;
+        }
     }
 
-    _handleMessage(socket, data) {
+    async _handleMessage(socket, data) {
         //Data string valid formatting 
         //uniqueid;command;argc;value;value;...
         let information = data.split(";");
         clearTimeout(socket.timeout);
+        let userExists = await this.findUser({uniqueID: information[0]})
         //Data handling
         if (information.pop(-1) != "") {
             socket.send("error;invalid-end-of-request-expected-semicolon;");
             return;
-        } else if (this.findDiscordUser(information[0]) == undefined) {
+        } else if (!userExists) {
             socket.send(`error;no-discord-user-with-id-${information[0]};`);
         } else {
             if (["sid", "build"].includes(information[1])) {
@@ -90,18 +106,20 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
     }
 
     //TODO(Callum): Permanent storage for unique id with discord id
-    _handleCommands(ctx, args, result, command) {
+    async _handleCommands(ctx, args, result, command) {
         if (["sid", "build"].includes(command.name)) {
-            var uniqueID = this._discordUser[ctx.author.id];
+            let user = await this.findUser(
+                {discordID: ctx.author.id});
+            var uniqueID = user.uniqueID;
             var socket = this._clients[uniqueID];
             //Prevent sending command response in the wrong channel
-            if (socket.awaitingChannel != undefined) {
+            if (socket?.awaitingChannel) {
                 ctx.channel.send(
                     "Please let the bot run its current command before sending another command");
                 return;
             }
 
-            if (uniqueID != undefined) {
+            if (uniqueID) {
                 //Send a request to the hunterpie plugin for the sid
                 socket.send(`${uniqueID};request-sid;`);
                 
@@ -117,10 +135,15 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
                     `No unique ID found for this discord account - to add an ID respond to this message ${this.prefix}add {uniqueid}.`);
             }
         } else if (command.name == "add") {
-            this._discordUsers[ctx.author.id] = args[0];
+            await this.addUser(ctx.author.id, args[0]);
             ctx.channel.send("Your id has been added");
-            break;
         }
+    }
+
+    async _setupMongoDB() {        
+        this.mongo = await new MongoClient(this._config.serverUri, {
+         useNewUrlParser: true, useUnifiedTopology: true });
+        await this.mongo.connect();
     }
 
     _setupDiscordBot() {
