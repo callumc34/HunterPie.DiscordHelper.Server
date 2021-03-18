@@ -90,14 +90,18 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
         clearTimeout(socket.timeout);
         let userExists = await this.findUser({uniqueID: information[0]})
         //Data handling
-        if (information.pop(-1) != "") {
+        if (information.pop(-1)) {
             socket.send("error;invalid-end-of-request-expected-semicolon;");
             return;
         } else if (!userExists) {
             socket.send(`error;no-discord-user-with-id-${information[0]};`);
         } else {
-            if (["sid", "build"].includes(information[1])) {
+            if (information[1] == "sid") {
                 socket.awaitingChannel.send(information[3]);
+                socket.awaitingChannel = undefined;
+            } else if (information[1] == "build") {
+                socket.awaitingChannel.send(
+                    decodeURIComponent(information[3]))
                 socket.awaitingChannel = undefined;
             } else {
                 socket.send("error;invalid-request-data");
@@ -110,6 +114,14 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
         if (["sid", "build"].includes(command.name)) {
             let user = await this.findUser(
                 {discordID: ctx.author.id});
+
+            if (!user) {
+                //Send a DM for them to add their uniqueID to the DB
+                ctx.author.send(
+                    `No unique ID found for this discord account - to add an ID respond to this message ${this.prefix}add {uniqueid}.`);
+                return false;
+            } 
+
             var uniqueID = user.uniqueID;
             var socket = this._clients[uniqueID];
             //Prevent sending command response in the wrong channel
@@ -117,10 +129,10 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
                 ctx.channel.send(
                     "No connection found with that ID. Consider restarting your plugin.");
                 return false;
-            } else if (socket?.awaitingChannel) {
+            } else if (socket.awaitingChannel) {
                 ctx.channel.send(
                     "Please let the bot run its current command before sending another command");
-                return false;;
+                return false;
             } else if (uniqueID) {
                 //Send a request to the hunterpie plugin for the sid
                 socket.send(`${uniqueID};request-${command.name};`);
@@ -133,10 +145,7 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
                 }, this._config.timeout);
                 return true;
             } else {
-                //Send a DM for them to add their uniqueID to the DB
-                ctx.author.send(
-                    `No unique ID found for this discord account - to add an ID respond to this message ${this.prefix}add {uniqueid}.`);
-                return false;
+
             }
         } else if (command.name == "add") {
             await this.addUser(ctx.author.id, args[0]);
