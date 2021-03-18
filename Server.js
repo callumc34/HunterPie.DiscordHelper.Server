@@ -113,15 +113,17 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
             var uniqueID = user.uniqueID;
             var socket = this._clients[uniqueID];
             //Prevent sending command response in the wrong channel
-            if (socket?.awaitingChannel) {
+            if (!socket) {
+                ctx.channel.send(
+                    "No connection found with that ID. Consider restarting your plugin.");
+                return false;
+            } else if (socket?.awaitingChannel) {
                 ctx.channel.send(
                     "Please let the bot run its current command before sending another command");
-                return;
-            }
-
-            if (uniqueID) {
+                return false;;
+            } else if (uniqueID) {
                 //Send a request to the hunterpie plugin for the sid
-                socket.send(`${uniqueID};request-sid;`);
+                socket.send(`${uniqueID};request-${command.name};`);
                 
                 socket.awaitingChannel = ctx.channel;
                 //Set timeout for call for sid
@@ -129,14 +131,17 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
                     ctx.channel.send(
                         `${ctx.author.toString()} could not fetch your ${command.name}. Please check your plugin is running correctly`);
                 }, this._config.timeout);
+                return true;
             } else {
                 //Send a DM for them to add their uniqueID to the DB
                 ctx.author.send(
                     `No unique ID found for this discord account - to add an ID respond to this message ${this.prefix}add {uniqueid}.`);
+                return false;
             }
         } else if (command.name == "add") {
             await this.addUser(ctx.author.id, args[0]);
             ctx.channel.send("Your id has been added");
+            return true;
         }
     }
 
