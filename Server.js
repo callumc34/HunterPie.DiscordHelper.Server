@@ -17,7 +17,8 @@ const config = {
     token: process.env.TOKEN,
     prefix: process.env.PREFIX,
     serverUri: `mongodb+srv://${process.env.USER}:${process.env.PASSWORD}@callumc34-0.wrlkr.mongodb.net/DiscordHelperDB?retryWrites=true&w=majority`,
-    db: process.env.DB
+    db: process.env.DB,
+    heartbeatInterval: process.env.HEARTBEAT_INTERVAL
 }
 
 const server = express()
@@ -35,7 +36,6 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
 
         //Server DB
         //Note: ws.Server has own list of clients as this.clients
-        this._discordUsers = {};
         this._clients = {};
 
         //Initialisation
@@ -51,15 +51,16 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
         return this._config.prefix;
     }
 
-    set timeout(val) {
-        this._config.timeout = val;
-    }
-
     get timeout() {
         return this._config.timeout;
     }
 
+    set timeout(val) {
+        this._config.timeout = val;
+    }
+
     async addUser(discordID, uniqueID) {
+        //Prevent double users from one id or discord id
         await this.mongo.db(this._config.db).collection("users")
         .deleteMany({uniqueID});
 
@@ -96,20 +97,26 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
         } else if (!userExists) {
             socket.send(`error;no-discord-user-with-id-${information[0]};`);
         } else {
-            if (information[1] == "sid") {
+            if (information[1] == "heartbeat") {
+                socket.heartbeatReceieved = true;
+                return true;
+            } else if (information[1] == "sid") {
                 socket.awaitingChannel.send(information[3]);
                 socket.awaitingChannel = undefined;
+                return true;
             } else if (information[1] == "build") {
                 socket.awaitingChannel.send(
                     decodeURIComponent(information[3]))
                 socket.awaitingChannel = undefined;
+                return true;
             } else {
                 socket.send("error;invalid-request-data");
+                return false;
             }
+            
         }        
     }
 
-    //TODO(Callum): Permanent storage for unique id with discord id
     async _handleCommands(ctx, args, result, command) {
         if (["sid", "build"].includes(command.name)) {
             let user = await this.findUser(
@@ -179,13 +186,25 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
         this.on("connection", (ws, request) => {
             const params = new URLSearchParams(request.url.substring(2));
             const uniqueID = params.get("uniqueid");
-            //TODO(Callum): check if multiple connections from one id   
-            if (uniqueID == null) {
+            if (!uniqueID) {
                 //Decline connection
                 ws.close(4000, "error;no-id-specified;");
             }
             ws.uniqueID = uniqueID;
             this._clients[uniqueID] = ws;
+            //Heartbeat for heroku connections
+            ws.heartbeat = setInterval(function() {
+                this.send(`${this.uniqueID};heartbeat;`);
+                this.heartbeatReceived = false;
+                var socket = this;
+                setTimeout(function() {
+                    if (!socket.heartbeatReceived) {
+                        ws.close(1008, "error;no-heartbeat-received;");
+                    } else {
+                        socket.heartbeatReceived = false;
+                    }
+                }, this.timeout);
+            }, this._config.heartbeatInterval)
             var that = this;
             ws.on("message", function(data) {
                 that._handleMessage(ws, data)
