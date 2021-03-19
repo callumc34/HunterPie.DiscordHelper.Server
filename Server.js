@@ -103,6 +103,7 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
         } else {
             if (information[1] == "heartbeat") {
                 socket.heartbeatReceieved = true;
+                clearTimeout(socket.heartbeatTimeout);
                 return true;
             } else if (information[1] == "sid") {
                 socket.awaitingChannel.send(information[3]);
