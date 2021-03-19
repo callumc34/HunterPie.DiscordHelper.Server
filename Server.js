@@ -193,15 +193,14 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
             ws.uniqueID = uniqueID;
             this._clients[uniqueID] = ws;
             //Heartbeat for heroku connections
-            ws.heartbeat = setInterval(function() {
-                this.send(`${this.uniqueID};heartbeat;`);
-                this.heartbeatReceived = false;
-                var socket = this;
+            ws.heartbeat = setInterval(() => {
+                ws.send(`${ws.uniqueID};heartbeat;`);
+                ws.heartbeatReceived = false;
                 setTimeout(function() {
                     if (!socket.heartbeatReceived) {
                         ws.close(1008, "error;no-heartbeat-received;");
                     } else {
-                        socket.heartbeatReceived = false;
+                        ws.heartbeatReceived = false;
                     }
                 }, this.timeout);
             }, this._config.heartbeatInterval)
