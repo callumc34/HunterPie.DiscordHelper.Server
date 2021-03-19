@@ -94,8 +94,12 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
         if (information.pop(-1)) {
             socket.send("error;invalid-end-of-request-expected-semicolon;");
             return;
+        } else if (socket.uniqueID != information[0]) {
+            socket.send("error;wrong-id;");
+            return false;
         } else if (!userExists) {
             socket.send(`error;no-discord-user-with-id-${information[0]};`);
+            return false;
         } else {
             if (information[1] == "heartbeat") {
                 socket.heartbeatReceieved = true;
@@ -196,14 +200,14 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
             ws.heartbeat = setInterval(() => {
                 ws.send(`${ws.uniqueID};heartbeat;`);
                 ws.heartbeatReceived = false;
-                clearTimeout(ws.heartbeat);
-                ws.heartbeat = setTimeout(function() {
+                clearTimeout(ws.heartbeatTimeout);
+                ws.heartbeatTimeout = setTimeout(function() {
                     if (!ws.heartbeatReceived) {
                         ws.close(1008, "error;no-heartbeat-received;");
                     } else {
                         ws.heartbeatReceived = false;
                     }
-                }, this.timeout);
+                }, this._config.heartbeatInterval);
             }, this._config.heartbeatInterval)
             var that = this;
             ws.on("message", function(data) {
