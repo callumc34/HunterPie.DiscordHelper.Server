@@ -196,8 +196,9 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
             ws.heartbeat = setInterval(() => {
                 ws.send(`${ws.uniqueID};heartbeat;`);
                 ws.heartbeatReceived = false;
-                setTimeout(function() {
-                    if (!socket.heartbeatReceived) {
+                clearTimeout(ws.heartbeat);
+                ws.heartbeat = setTimeout(function() {
+                    if (!ws.heartbeatReceived) {
                         ws.close(1008, "error;no-heartbeat-received;");
                     } else {
                         ws.heartbeatReceived = false;
