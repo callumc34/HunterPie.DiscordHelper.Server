@@ -4,6 +4,8 @@
 
 Server for the HunterPie Plugin [DiscordHelper](https://github.com/callumc34/HunterPie.DiscordHelper).
 
+To add this bot to your server click [this](https://discord.com/api/oauth2/authorize?client_id=820790788682022912&permissions=2147601472&scope=bot) link.
+
 Commands:
 
 - $help - show list of commands
