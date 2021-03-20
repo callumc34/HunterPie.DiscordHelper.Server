@@ -101,29 +101,44 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
             socket.send(`error;no-discord-user-with-id-${information[0]};`);
             return false;
         } else {
-            if (information[1] == "heartbeat") {
-                socket.heartbeatReceieved = true;
-                clearTimeout(socket.heartbeatTimeout);
-                return true;
-            } else if (information[1] == "sid") {
-                socket.awaitingChannel.send(information[3]);
-                socket.awaitingChannel = undefined;
-                return true;
-            } else if (information[1] == "build") {
-                socket.awaitingChannel.send(
-                    decodeURIComponent(information[3]))
-                socket.awaitingChannel = undefined;
-                return true;
-            } else {
-                socket.send("error;invalid-request-data");
-                return false;
+            switch (information[1]) {
+                case "heartbeat":
+                    socket.heartbeatReceieved = true;
+                    clearTimeout(socket.heartbeatTimeout);
+                    return true;
+                case "sid":
+                    socket.awaitingChannel.send(information[3]);
+                    socket.awaitingChannel = undefined;
+                    return true;
+                case "build":
+                    socket.awaitingChannel.send(
+                        decodeURIComponent(information[3]))
+                    socket.awaitingChannel = undefined;
+                    return true;
+                case "dps":
+                    let dmgStrings = information.splice(3);
+                    socket.awaitingChannel.send(
+                        dmgStrings.join("\n"));
+                    socket.awaitingChannel = undefined;
+                    return true;
+                case "error":
+                    console.warn(information[3]);
+                    socket.awaitingChannel.send("There was an error executing your command.");
+                    socket.awaitingChannel = undefined;
+                    return false;
+                default:
+                    socket.send("error;invalid-request-data;");
+                    return false;
             }
             
         }        
     }
 
     async _handleCommands(ctx, args, result, command) {
-        if (["sid", "build"].includes(command.name)) {
+        if (!result) {
+            ctx.channel.send("Failed to execute command - Please check your arguments");
+        }
+        if (["sid", "build", "dps"].includes(command.name)) {
             let user = await this.findUser(
                 {discordID: ctx.author.id});
 
@@ -147,7 +162,15 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
                 return false;
             } else if (uniqueID) {
                 //Send a request to the hunterpie plugin for the sid
-                socket.send(`${uniqueID};request-${command.name};`);
+                if (["sid", "build"].includes(command.name)) {
+                    socket.send(`${uniqueID};request-${command.name};`);
+                } else if (command.name == "dps") {
+                    if (!result) {
+                        return false;
+                    }
+                    socket.send(
+                        `${uniqueID};request-${command.name};${result.join(";") + ";"}`);
+                }
                 
                 socket.awaitingChannel = ctx.channel;
                 //Set timeout for call for sid

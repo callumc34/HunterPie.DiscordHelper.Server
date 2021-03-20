@@ -14,5 +14,6 @@ module.exports = class HelpCommand extends Command {
                         sid - send your session id to this channel
                         build - post your build to this channel
                         `)
+                    return true;
                 }
         }

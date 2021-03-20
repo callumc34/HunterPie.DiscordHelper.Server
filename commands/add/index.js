@@ -9,6 +9,6 @@ module.exports = class AddIDCommand extends Command {
                 }
  
                 async _run (ctx, args) {
-                    //ctx.channel.send("");
+                    return true;
                 }
         }
