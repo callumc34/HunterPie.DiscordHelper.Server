@@ -5,6 +5,7 @@ module.exports = class DPSCommand extends Command {
                         super(
                                 "dps",
                                   [],
+                                  [],
                                   ["start", "range"]);
                 }
  
