@@ -206,7 +206,7 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
         //Add hooks
         this._discordBot.commandCollection.on(
             "ran", (ctx, args, result, command) => {
-            this._handleCommands(ctx, args, result, command)
+            this._handleCommands(ctx, args, result, command);
         });
 
         this._discordBot.initialise(this._config.token);
