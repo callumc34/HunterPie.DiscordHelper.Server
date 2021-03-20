@@ -116,9 +116,11 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
                     socket.awaitingChannel = undefined;
                     return true;
                 case "dps":
-                    let dmgStrings = information.splice(3);
-                    socket.awaitingChannel.send(
-                        dmgStrings.join("\n"));
+                    let dmgStrings = information.splice(3).join("\n");
+                    if (!dmgStrings) {
+                        dmgStrings = "Failed to retrieve dps. Are you in a quest?";
+                    }
+                    socket.awaitingChannel.send(dmgStrings);
                     socket.awaitingChannel = undefined;
                     return true;
                 case "error":
