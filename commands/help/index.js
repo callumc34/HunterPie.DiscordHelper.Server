@@ -13,6 +13,7 @@ module.exports = class HelpCommand extends Command {
                         help - see this command
                         sid - send your session id to this channel
                         build - post your build to this channel
+                        dps - {start} {end} Shows dps in ranges leave blank to show all or no end to show one
                         `)
                     return true;
                 }
