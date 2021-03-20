@@ -2,7 +2,8 @@
 const dotenv = require("dotenv");
 const express = require("express");
 const MongoClient = require("mongodb").MongoClient;
-const { NodeJSBot } = require("nodejsdiscordbot")
+const { NodeJSBot } = require("nodejsdiscordbot");
+const { commandConfig } = require("./config.js");
 const { Server } = require("ws");
 
 dotenv.config();
@@ -18,7 +19,8 @@ const config = {
     prefix: process.env.PREFIX,
     serverUri: `mongodb+srv://${process.env.USER}:${process.env.PASSWORD}@callumc34-0.wrlkr.mongodb.net/DiscordHelperDB?retryWrites=true&w=majority`,
     db: process.env.DB,
-    heartbeatInterval: process.env.HEARTBEAT_INTERVAL
+    heartbeatInterval: process.env.HEARTBEAT_INTERVAL,
+    commandConfig
 }
 
 const server = express()
@@ -42,7 +44,7 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
         this._setupMongoDB()
             .then(() => {
                 this._setupServer();
-                this._setupDiscordBot();
+                this._setupDiscordBot(this._config.commandConfig);
             });
         
     }
@@ -177,6 +179,7 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
                 socket.awaitingChannel = ctx.channel;
                 //Set timeout for call for sid
                 socket.timeout = setTimeout(function() {
+                    socket.awaitingChannel = undefined;
                     ctx.channel.send(
                         `${ctx.author.toString()} could not fetch your ${command.name}. Please check your plugin is running correctly`);
                 }, this._config.timeout);
@@ -197,8 +200,8 @@ const DiscordHelperServer = class DiscordHelperserver extends Server {
         await this.mongo.connect();
     }
 
-    _setupDiscordBot() {
-        this._discordBot = new NodeJSBot(this.prefix);
+    _setupDiscordBot(commandConfig = {}) {
+        this._discordBot = new NodeJSBot(this.prefix, commandConfig);
         this._discordBot.once("ready", () => {
             this._discordBot.commandCollection.loadCommands();
         })
