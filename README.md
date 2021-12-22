@@ -30,3 +30,9 @@ A default discord bot is always up at https://server-mhwdiscordhelper.herokuapp.
 Pixee for the awesome logo
 
 Archdevil1911, ColdHarbour, iLikePvE, Kino and Nariety for testing!
+
+## Contact information
+If you need to delete your discord ID from the database or need to contact me:
+
+mrdeadguy34#3613
+email on profile page
